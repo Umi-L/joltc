@@ -21,6 +21,18 @@ function(add_sample SAMPLE_NAME)
         target_link_libraries(${SAMPLE_NAME} LINK_PUBLIC joltc)
     endif ()
 
+    if (EMSCRIPTEN)
+        message("Adding emscripten specific flags")
+
+        set(WASM_BUILD_FLAGS "\
+        -s ALLOW_MEMORY_GROWTH \
+        -sSTACK_SIZE=1048576 \
+        -sINITIAL_MEMORY=134217728")
+
+        set_target_properties(${SAMPLE_NAME} PROPERTIES LINK_FLAGS "${WASM_BUILD_FLAGS}")
+
+    endif()
+
 	if (MSVC)
 		target_link_options(${SAMPLE_NAME} PUBLIC "/SUBSYSTEM:CONSOLE")
 	endif()

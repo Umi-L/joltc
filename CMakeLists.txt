@@ -138,7 +138,7 @@ endif ()
 FetchContent_Declare(
         JoltPhysics
         GIT_REPOSITORY "https://github.com/jrouwe/JoltPhysics"
-        GIT_TAG "c93401ea6577af6ae052f7c22cda6067a30333f3"
+        GIT_TAG "63c5020e2e743918da657e7e7d36b4c6413d0bef"
 		SOURCE_SUBDIR "Build"
 )
 FetchContent_MakeAvailable(JoltPhysics)
@@ -254,7 +254,10 @@ else()
 
 	# Set linker flags
 	if (NOT ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows"))
-		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
+        if (NOT DEFINED EMSCRIPTEN)
+            message("Setting linker flags (-pthread)")
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
+        endif()
 	endif()
 endif()
 
