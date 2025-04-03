@@ -26,10 +26,10 @@ if (NOT DEFINED JPH_MASTER_PROJECT)
 endif ()
 
 if (JPH_MASTER_PROJECT)
-	# Configure CMake global variables
-	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-	set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+    # Configure CMake global variables
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 endif()
 
 if (MSVC AND JPH_MASTER_PROJECT)
@@ -135,130 +135,137 @@ if (JPH_MASTER_PROJECT AND NOT CMAKE_BUILD_TYPE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${CMAKE_CONFIGURATION_TYPES})
 endif ()
 
+if (EMSCRIPTEN)
+    message(STATUS "Building for Emscripten, using threading")
+    # Set global compile and link flags for Emscripten before fetching Jolt
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -s USE_PTHREADS=1 -matomics -mbulk-memory")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread -s USE_PTHREADS=1 -matomics -mbulk-memory")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pthread -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=4")
+endif()
+
 FetchContent_Declare(
-        JoltPhysics
-        GIT_REPOSITORY "https://github.com/jrouwe/JoltPhysics"
-        GIT_TAG "63c5020e2e743918da657e7e7d36b4c6413d0bef"
-		SOURCE_SUBDIR "Build"
+    JoltPhysics
+    GIT_REPOSITORY "https://github.com/jrouwe/JoltPhysics"
+    GIT_TAG "63c5020e2e743918da657e7e7d36b4c6413d0bef"
+    SOURCE_SUBDIR "Build"
 )
 FetchContent_MakeAvailable(JoltPhysics)
 
 if (XCODE)
-	# Ensure that we enable SSE4.2 for the x86_64 build, XCode builds multiple architectures
-	set_property(TARGET Jolt PROPERTY XCODE_ATTRIBUTE_OTHER_CPLUSPLUSFLAGS[arch=x86_64] "$(inherited) -msse4.2 -mpopcnt")
+    # Ensure that we enable SSE4.2 for the x86_64 build, XCode builds multiple architectures
+    set_property(TARGET Jolt PROPERTY XCODE_ATTRIBUTE_OTHER_CPLUSPLUSFLAGS[arch=x86_64] "$(inherited) -msse4.2 -mpopcnt")
 endif()
 
 if (MSVC)
-	# Fill in the path to the asan libraries
-	set(CLANG_LIB_PATH "\"$(VSInstallDir)\\VC\\Tools\\Llvm\\x64\\lib\\clang\\${CMAKE_CXX_COMPILER_VERSION}\\lib\\windows\"")
+    # Fill in the path to the asan libraries
+    set(CLANG_LIB_PATH "\"$(VSInstallDir)\\VC\\Tools\\Llvm\\x64\\lib\\clang\\${CMAKE_CXX_COMPILER_VERSION}\\lib\\windows\"")
 
-	# 64 bit architecture
-	set(CMAKE_VS_PLATFORM_TOOLSET_HOST_ARCHITECTURE "x64")
+    # 64 bit architecture
+    set(CMAKE_VS_PLATFORM_TOOLSET_HOST_ARCHITECTURE "x64")
 
-	# Set general compiler flags
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus /Gm- /MP /nologo /diagnostics:classic /FC /fp:except- /Zc:inline")
+    # Set general compiler flags
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus /Gm- /MP /nologo /diagnostics:classic /FC /fp:except- /Zc:inline")
 
-	# Enable warnings
-	if (ENABLE_ALL_WARNINGS)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Wall /WX")
-	endif()
+    # Enable warnings
+    if (ENABLE_ALL_WARNINGS)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Wall /WX")
+    endif()
 
-	# Set compiler flag for disabling RTTI
-	if (NOT CPP_RTTI_ENABLED)
-		# Set compiler flag for disabling RTTI
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
-	else()
-		# Set compiler flag for enabling RTTI
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR")
-	endif()
+    # Set compiler flag for disabling RTTI
+    if (NOT CPP_RTTI_ENABLED)
+        # Set compiler flag for disabling RTTI
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
+    else()
+        # Set compiler flag for enabling RTTI
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR")
+    endif()
 
-	if (NOT CPP_EXCEPTIONS_ENABLED)
-		# Remove any existing compiler flag that enables exceptions
-		string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    if (NOT CPP_EXCEPTIONS_ENABLED)
+        # Remove any existing compiler flag that enables exceptions
+        string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 
-		# Disable warning about STL and compiler-generated types using noexcept when exceptions are disabled
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4577")
-	else()
-		# Enable exceptions
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
-	endif()
+        # Disable warning about STL and compiler-generated types using noexcept when exceptions are disabled
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4577")
+    else()
+        # Enable exceptions
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+    endif()
 
-	set(CMAKE_CXX_FLAGS_DISTRIBUTION "${CMAKE_CXX_FLAGS_RELEASE}")
+    set(CMAKE_CXX_FLAGS_DISTRIBUTION "${CMAKE_CXX_FLAGS_RELEASE}")
 
-	# Set linker flags
-	set(CMAKE_EXE_LINKER_FLAGS "/SUBSYSTEM:WINDOWS /ignore:4221")
-	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-		if (CROSS_PLATFORM_DETERMINISTIC)
-			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:precise")
-		else()
-			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast") # Clang doesn't use fast math because it cannot be turned off inside a single compilation unit
-		endif()
-	elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /showFilenames")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments") # Clang emits warnings about unused arguments such as /MP and /GL
-	endif()
-else()
-	# Enable warnings
-	if (ENABLE_ALL_WARNINGS)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
-	endif()
-
-	# Set compiler flag for disabling RTTI
-	if (NOT CPP_RTTI_ENABLED)
-		# Set compiler flag for disabling RTTI
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
-	else()
-		# Set compiler flag for enabling RTTI
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -frtti")
-	endif()
-
-	# Disable exception-handling
-	if (NOT CPP_EXCEPTIONS_ENABLED)
-		# Set compiler flag for disabling exception-handling
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
-	else()
-		# Set compiler flag for enabling exception-handling
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
-	endif()
-
-	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		# Also disable -Wstringop-overflow or it will generate false positives that can't be disabled from code when link-time optimizations are enabled
-		# Also turn off automatic fused multiply add contractions, there doesn't seem to be a way to do this selectively through the macro JPH_PRECISE_MATH_OFF
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-stringop-overflow -ffp-contract=off")
-	else()
-		# Do not use -ffast-math since it cannot be turned off in a single compilation unit under clang, see Core.h
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-model=precise")
-
-		# On clang 14 and later we can turn off float contraction through a pragma, older versions and deterministic versions need it off always, see Core.h
-		if (CMAKE_CXX_COMPILER_VERSION LESS 14 OR CROSS_PLATFORM_DETERMINISTIC)
-			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=off")
-		endif()
-
-		# Cross compiler flags
-		if (CROSS_COMPILE_ARM)
-			set(CMAKE_CXX_FLAGS "--target=aarch64-linux-gnu ${CMAKE_CXX_FLAGS}")
-		endif()
-	endif()
-
-	# See https://github.com/jrouwe/JoltPhysics/issues/922. When compiling with DOUBLE_PRECISION=YES and CMAKE_OSX_DEPLOYMENT_TARGET=10.12 clang triggers a warning that we silence here.
-	if ("${CMAKE_SYSTEM_NAME}" MATCHES "Darwin" AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -faligned-allocation")
-	endif()
-
-	# Set compiler flags for various configurations
-	if (OVERRIDE_CXX_FLAGS)
-		set(CMAKE_CXX_FLAGS_DEBUG "")
-		set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-	endif()
-	set(CMAKE_CXX_FLAGS_DISTRIBUTION "${CMAKE_CXX_FLAGS_RELEASE}")
-
-	# Set linker flags
-	if (NOT ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows"))
-        if (NOT DEFINED EMSCRIPTEN)
-            message("Setting linker flags (-pthread)")
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
+    # Set linker flags
+    set(CMAKE_EXE_LINKER_FLAGS "/SUBSYSTEM:WINDOWS /ignore:4221")
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+        if (CROSS_PLATFORM_DETERMINISTIC)
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:precise")
+        else()
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast") # Clang doesn't use fast math because it cannot be turned off inside a single compilation unit
         endif()
-	endif()
+    elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /showFilenames")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments") # Clang emits warnings about unused arguments such as /MP and /GL
+    endif()
+else()
+    # Enable warnings
+    if (ENABLE_ALL_WARNINGS)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
+    endif()
+
+    # Set compiler flag for disabling RTTI
+    if (NOT CPP_RTTI_ENABLED)
+        # Set compiler flag for disabling RTTI
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+    else()
+        # Set compiler flag for enabling RTTI
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -frtti")
+    endif()
+
+    # Disable exception-handling
+    if (NOT CPP_EXCEPTIONS_ENABLED)
+        # Set compiler flag for disabling exception-handling
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
+    else()
+        # Set compiler flag for enabling exception-handling
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+    endif()
+
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        # Also disable -Wstringop-overflow or it will generate false positives that can't be disabled from code when link-time optimizations are enabled
+        # Also turn off automatic fused multiply add contractions, there doesn't seem to be a way to do this selectively through the macro JPH_PRECISE_MATH_OFF
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-stringop-overflow -ffp-contract=off")
+    else()
+        # Do not use -ffast-math since it cannot be turned off in a single compilation unit under clang, see Core.h
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-model=precise")
+
+        # On clang 14 and later we can turn off float contraction through a pragma, older versions and deterministic versions need it off always, see Core.h
+        if (CMAKE_CXX_COMPILER_VERSION LESS 14 OR CROSS_PLATFORM_DETERMINISTIC)
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffp-contract=off")
+        endif()
+
+        # Cross compiler flags
+        if (CROSS_COMPILE_ARM)
+            set(CMAKE_CXX_FLAGS "--target=aarch64-linux-gnu ${CMAKE_CXX_FLAGS}")
+        endif()
+    endif()
+
+    # See https://github.com/jrouwe/JoltPhysics/issues/922. When compiling with DOUBLE_PRECISION=YES and CMAKE_OSX_DEPLOYMENT_TARGET=10.12 clang triggers a warning that we silence here.
+    if ("${CMAKE_SYSTEM_NAME}" MATCHES "Darwin" AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -faligned-allocation")
+    endif()
+
+    # Set compiler flags for various configurations
+    if (OVERRIDE_CXX_FLAGS)
+        set(CMAKE_CXX_FLAGS_DEBUG "")
+        set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+    endif()
+    set(CMAKE_CXX_FLAGS_DISTRIBUTION "${CMAKE_CXX_FLAGS_RELEASE}")
+
+    # Set linker flags
+    if (NOT ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows"))
+        message("Setting linker flags (-pthread)")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
+    endif()
 endif()
 
 # Set linker flags
@@ -274,7 +281,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Disable shared library when building Jolt"
 if (IOS OR EMSCRIPTEN)
     set(JPH_BUILD_SHARED OFF CACHE BOOL "Always Disable shared library on (IOS, WEB)" FORCE)
 else()
-	option(JPH_BUILD_SHARED "Build a shared library" ${JPH_MASTER_PROJECT})
+    option(JPH_BUILD_SHARED "Build a shared library" ${JPH_MASTER_PROJECT})
 endif()
 
 # Setup joltc library
@@ -286,54 +293,67 @@ else()
 endif ()
 
 set(SOURCE_FILES
-	${CMAKE_CURRENT_SOURCE_DIR}/include/joltc.h
+ ${CMAKE_CURRENT_SOURCE_DIR}/include/joltc.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/joltc.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/joltc_assert.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/src/joltc.c
+ ${CMAKE_CURRENT_SOURCE_DIR}/src/joltc.c
 )
 
 if (JPH_BUILD_SHARED)
-	add_library(${TARGET_NAME} SHARED ${SOURCE_FILES})
+    add_library(${TARGET_NAME} SHARED ${SOURCE_FILES})
 else()
-	add_library(${TARGET_NAME} ${SOURCE_FILES})
+    add_library(${TARGET_NAME} ${SOURCE_FILES})
 endif()
 
 if(JPH_BUILD_SHARED)
-	target_compile_definitions(${TARGET_NAME} PRIVATE JPH_SHARED_LIBRARY_BUILD=1)
+    target_compile_definitions(${TARGET_NAME} PRIVATE JPH_SHARED_LIBRARY_BUILD=1)
 endif ()
 
 target_include_directories(${TARGET_NAME} PUBLIC
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-	${JoltPhysics_SOURCE_DIR}/..
+ $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+ ${JoltPhysics_SOURCE_DIR}/..
 )
 target_link_libraries(${TARGET_NAME} PRIVATE Jolt)
 
 if (MSVC)
     # Debug information
-	target_compile_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:/Zi>)
+    target_compile_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:/Zi>)
 
-	# Enable full optimization in dev/release
-	target_compile_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:/Od> $<$<NOT:$<CONFIG:Debug>>:/Ox>)
+    # Enable full optimization in dev/release
+    target_compile_options(${TARGET_NAME} PRIVATE $<$<CONFIG:Debug>:/Od> $<$<NOT:$<CONFIG:Debug>>:/Ox>)
 
-	# Inline function expansion
-	target_compile_options(${TARGET_NAME} PRIVATE /Ob2)
+    # Inline function expansion
+    target_compile_options(${TARGET_NAME} PRIVATE /Ob2)
 
-	 # Enable intrinsic functions in dev/release
-	target_compile_options(${TARGET_NAME} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/Oi>)
+    # Enable intrinsic functions in dev/release
+    target_compile_options(${TARGET_NAME} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/Oi>)
 
     # Favor fast code
-	target_compile_options(${TARGET_NAME} PRIVATE /Ot)
+    target_compile_options(${TARGET_NAME} PRIVATE /Ot)
 
     # Enable fiber-safe optimizations in dev/release
-	target_compile_options(${TARGET_NAME} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/GT>)
+    target_compile_options(${TARGET_NAME} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/GT>)
 
-	# Enable string pooling
-	target_compile_options(${TARGET_NAME} PRIVATE /GF)
+    # Enable string pooling
+    target_compile_options(${TARGET_NAME} PRIVATE /GF)
 
     # Use security checks only in debug
-	target_compile_options(${TARGET_NAME} PRIVATE $<$<CONFIG:DEBUG>:/sdl> $<$<NOT:$<CONFIG:DEBUG>>:/sdl->)
+    target_compile_options(${TARGET_NAME} PRIVATE $<$<CONFIG:DEBUG>:/sdl> $<$<NOT:$<CONFIG:DEBUG>>:/sdl->)
 else()
-
+    if (EMSCRIPTEN)
+        message("Compiling with emscripten flags")
+        target_compile_options(${TARGET_NAME} PRIVATE
+            -pthread
+            -matomics
+            -mbulk-memory
+        )
+        target_link_options(${TARGET_NAME} PRIVATE
+            -pthread
+            -s USE_PTHREADS=1
+            -s PTHREAD_POOL_SIZE=4
+            -s ALLOW_MEMORY_GROWTH=1
+        )
+    endif()
 endif ()
 
 install(TARGETS ${TARGET_NAME}
@@ -346,15 +366,15 @@ install(TARGETS ${TARGET_NAME}
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/joltc.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Jolt
 )
- 
+
 if (JPH_SAMPLES)
-	add_subdirectory(samples)
+    add_subdirectory(samples)
 endif ()
 
 if (JPH_BUILD_SHARED)
-	message(STATUS "  Library         SHARED")
+    message(STATUS "  Library         SHARED")
 else ()
-  	message(STATUS "  Library         STATIC")
+    message(STATUS "  Library         STATIC")
 endif ()
 
 message(STATUS "  Samples         ${JPH_SAMPLES}")
